@@ -1,0 +1,20 @@
+{
+  "deep_swe": {
+    "repository": "https://github.com/datacurve-ai/deep-swe",
+    "commit": "0b9fabbb63b9104d678fe965e1632f2dd9eaa2ea"
+  },
+  "pier": {
+    "repository": "https://github.com/datacurve-ai/pier",
+    "commit": "4d3c14041d16443f3f9f460dcdf23629994a304e",
+    "package_version": "0.3.1"
+  },
+  "mini_swe_agent": {
+    "repository": "https://github.com/SWE-agent/mini-swe-agent",
+    "commit": "a83fcae82d2a08f0ee0c688f9d137b3566c097f8",
+    "version": "2.4.6"
+  },
+  "python": "3.12",
+  "litellm": "1.83.0",
+  "openai": "2.32.0",
+  "httpx": "0.28.1"
+}

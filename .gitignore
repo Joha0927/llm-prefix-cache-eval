@@ -1,0 +1,28 @@
+# Credentials and machine-specific state
+secrets/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.runtime-mini-config/
+
+# All generated experiment artifacts stay local
+data/
+reports/
+outputs/
+third_party/
+*.log
+*.jsonl
+*.csv
+*.tar
+*.tar.gz
+
+# Build and interpreter caches
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+build/
+dist/
