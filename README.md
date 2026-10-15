@@ -126,4 +126,4 @@ python -m pytest -q
 
 `src/glm_trace/` 是核心适配与采集；`scripts/` 是运行、审计和统计入口；`tests/` 是无模型回归；`configs/` 是公开的参考配置。`data/`、`reports/`、`secrets/`、缓存和第三方源码均被忽略。
 
-此仓库发布版未包含本机历史实验专用的 Run ID、恢复脚本、实验记录或许可授予文件。上游组件的许可证归各自项目所有。
+此仓库发布版未包含本机历史实验专用的 Run ID、恢复脚本或实验记录。未为项目新增开源许可证；上游来源及必要版权声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
