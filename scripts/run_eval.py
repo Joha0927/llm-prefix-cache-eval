@@ -12,6 +12,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from live_mirror import atomic_copy, mirror_progress
+
 PROJECT = Path(__file__).resolve().parents[1]
 
 
@@ -64,18 +66,18 @@ def run_one(task, args, budget):
     with (output/'console.log').open('w', encoding='utf-8') as console:
         process = subprocess.Popen(command, stdout=console, stderr=subprocess.STDOUT, env=environment)
         while process.poll() is None:
-            # Native request files are fsynced immediately; copies are live convenience views.
-            for directory in job.glob('*/requests'):
-                for name in ('requests.jsonl', 'usage.csv', 'checkpoint.json'):
-                    if (directory/name).exists():
-                        shutil.copyfile(directory/name, output/name)
+            # Mirrors are convenience views; failures must not detach the child.
+            mirror_progress(job, output, output)
             time.sleep(2)
     for directory in job.glob('*/requests'):
         for name in ('requests.jsonl','usage.csv','checkpoint.json','checkpoint_manifest.json','worktree.tar.gz'):
             if (directory/name).exists():
-                shutil.copyfile(directory/name,output/name)
-    trials = [json.loads(p.read_text()) for p in job.rglob('result.json')
-              if 'trial_name' in json.loads(p.read_text())]
+                atomic_copy(directory/name,output/name)
+    trials = []
+    for path in job.rglob('result.json'):
+        result = json.loads(path.read_text())
+        if 'trial_name' in result:
+            trials.append(result)
     rows = list(csv.DictReader((output/'usage.csv').open(encoding='utf-8'))) if (output/'usage.csv').exists() else []
     summaries = list(job.rglob('trace_summary.json'))
     exit_status = json.loads(summaries[0].read_text())['exit_status'] if len(summaries)==1 else None

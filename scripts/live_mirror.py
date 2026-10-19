@@ -2,7 +2,6 @@
 import json
 import os
 from pathlib import Path
-import shutil
 import traceback
 import uuid
 from datetime import datetime, timezone
@@ -46,6 +45,7 @@ def mirror_progress(job, output, windows):
                 source=requests/name
                 if source.exists():
                     atomic_copy(source,output/name)
-                    atomic_copy(source,windows/name)
+                    if Path(windows) != Path(output):
+                        atomic_copy(source,windows/name)
     except OSError as exc:
         record_error(output,exc)

@@ -28,3 +28,18 @@ def test_mirror_oserror_is_diagnostic_not_worker_failure(tmp_path,monkeypatch):
     assert event['errno']==errno.EACCES
     assert event['filename']=='usage.csv'
     assert event['action']=='keep_supervising_original_pier_process'
+
+
+def test_same_destination_is_not_written_twice(tmp_path,monkeypatch):
+    requests=tmp_path/'job/trial/requests';requests.mkdir(parents=True)
+    (requests/'usage.csv').write_bytes(b'complete provider usage')
+    output=tmp_path/'output';output.mkdir()
+    copied=[]
+    original=live_mirror.atomic_copy
+    def copy(source,target):
+        copied.append(target)
+        original(source,target)
+    monkeypatch.setattr(live_mirror,'atomic_copy',copy)
+    live_mirror.mirror_progress(tmp_path/'job',output,output)
+    assert (output/'usage.csv').read_bytes()==b'complete provider usage'
+    assert copied==[output/'usage.csv']
