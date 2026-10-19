@@ -26,3 +26,15 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+
+# Final local releases, legacy packages and offline runtime dependencies.
+results/
+archive/
+runtime/
+node_modules/
+.cache/
+analysis/**/node_modules/
+analysis/**/plot_dependencies/
+analysis/**/assets/
+analysis/**/runs/
+analysis/**/reports/

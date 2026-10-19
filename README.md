@@ -146,3 +146,12 @@ PYTHONPATH=src:scripts:analysis/theoretical_prefix_cache python -m pytest -q tes
 ### 精简后的运行边界
 
 顺序入口复用同一`live_mirror`原子副本实现，临时副本复制失败仅记录诊断并继续监督原Pier；子进程退出后的最终复制及归档验收仍严格失败，不会降级为成功。相同副本目标只写一次，结果JSON只解析一次。模型请求、Usage计数、断点计数和官方评分逻辑未改。
+
+
+## 正式结果目录与本地看板
+
+`scripts/build_results_release.py`为离线导出器：从显式冻结的113项索引及请求统计导出一项任务一份完整结果；111项旧版单独归档为目录及ZIP。输入路径、输出路径与已有图表目录均必须明确指定，见`--help`。不会调用模型或Docker，也不会读取凭据。已有正式结果不能覆盖；`--resume`只用于带BUILDING标记的未完成导出。
+
+每个任务包含最终原生完整对话、逐HTTP Attempt的完整输入/响应、Usage、官方评分、最终补丁及溯源。独立Verifier恢复会按索引关联补丁，0 HTTP暂停片段不会伪造Usage。正文不重复拼接每轮完整上下文，原档不改。
+
+页面模板为`scripts/templates/results_dashboard.html`，生成`results/index.html`，包含指标、分布图、热力图及任务筛选。页面无需CDN或外部服务，只嵌入统计元数据，完整对话通过本地文件链接查看。`results/`、`archive/`、`runtime/`、原始数据、环境依赖和凭据全部忽略，不进入Git；导出代码、模板、测试、依赖锁和配置可提交。
