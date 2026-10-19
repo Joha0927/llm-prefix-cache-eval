@@ -5,6 +5,7 @@ import platform
 import shlex
 import uuid
 import hashlib
+import math
 from pathlib import Path
 
 import yaml
@@ -18,6 +19,17 @@ from pier.agents.installed.mini_swe_agent import convert_and_save_trajectory, po
 from glm_trace.model import TracedModel
 from glm_trace.trace import Trace
 from glm_trace.checkpoint import save_checkpoint, continue_agent, load_checkpoint
+from glm_trace.workspace_archive import archive_workspace
+
+
+def points_allowance(value):
+    """Explicit unlimited opt-in; finite legacy budgets retain their meaning."""
+    if value == 'unlimited':
+        return float('inf')
+    amount=float(value)
+    if not math.isfinite(amount) or amount <= 0:
+        raise ValueError('Invalid points allowance')
+    return amount
 
 
 class Bridge(LocalEnvironment):
@@ -86,16 +98,16 @@ class HostMiniAgent(BaseAgent):
         super().__init__(**kwargs)
         self.credential_file = Path(credential_file)
         self.ids = dict(experiment_id=experiment_id, task_id=task_id, run_id=run_id)
-        self.points_limit, self.max_tokens = float(points_limit), int(max_tokens)
+        self.points_limit, self.max_tokens = points_allowance(points_limit), int(max_tokens)
         self.resume_directory = Path(resume_directory) if resume_directory else None
-        self.total_points_limit = float(total_points_limit)
+        self.total_points_limit = points_allowance(total_points_limit)
 
     @staticmethod
     def name():
         return "mini-swe-agent-host"
 
     def version(self):
-        return "2.4.6-host-adapter-v6-resume-budget"
+        return "2.4.6-host-adapter-v9-parallel-pause"
 
     async def setup(self, environment):
         result = await environment.exec("test ! -e /solution && test ! -e /tests && test ! -e /var/run/docker.sock", timeout_sec=30)
@@ -162,12 +174,7 @@ class HostMiniAgent(BaseAgent):
             checkpoint = save_checkpoint(agent)
             if checkpoint["resume_allowed"] or self.resume_directory:
                 archive_path = trace.path / "worktree.tar.gz"
-                archive_result = await environment.exec("tar -C /app -czf /tmp/glm-checkpoint-worktree.tar.gz .", timeout_sec=600)
-                if archive_result.return_code:
-                    trace.event("checkpoint_archive_error", return_code=archive_result.return_code,
-                                stdout=archive_result.stdout, stderr=archive_result.stderr)
-                    raise RuntimeError("Workspace checkpoint failed")
-                await environment.download_file("/tmp/glm-checkpoint-worktree.tar.gz", archive_path)
+                await archive_workspace(environment, archive_path, trace)
                 identity = await environment.exec("cat /etc/hostname", timeout_sec=30)
                 from glm_trace.retained import container_identity
                 container_id = await container_identity(identity.stdout.strip())

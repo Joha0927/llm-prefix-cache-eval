@@ -127,3 +127,17 @@ python -m pytest -q
 `src/glm_trace/` 是核心适配与采集；`scripts/` 是运行、审计和统计入口；`tests/` 是无模型回归；`configs/` 是公开的参考配置。`data/`、`reports/`、`secrets/`、缓存和第三方源码均被忽略。
 
 此仓库发布版未包含本机历史实验专用的 Run ID、恢复脚本或实验记录。未为项目新增开源许可证；上游来源及必要版权声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+
+## 评测收尾后的代码快照（2026-10-19）
+
+本版同步已完成评测所用的采集/宿主适配、累计断点、私有目录工作区归档、截止保护与JSONL审计修复，并保留原可移植顺序CLI。`scripts/live_mirror.py`提供失败不丢失原任务监督的原子副本工具。机器专用并发协调器、一次性恢复入口和历史状态保留在本地实验档案，不作为跨机器可执行CLI发布。默认仍仅预览，不启动新模型请求。
+
+`analysis/theoretical_prefix_cache/core.py`为纯离线分析内核，支持历史前缀LCP及Token/Block16/Block64粒度；不读取凭据或调用模型。使用该内核前安装同目录的`requirements.txt`。分词器与模板需调用方另行按固定版本取得，未随仓库分发；理论缓存不能替代Provider实测Usage。
+
+```bash
+pip install -r analysis/theoretical_prefix_cache/requirements.txt
+PYTHONPATH=src:scripts:analysis/theoretical_prefix_cache python -m pytest -q tests analysis/theoretical_prefix_cache/test_core.py
+```
+
+显式无限积分仅为宿主适配的独立授权接口能力，现有通用CLI继续要求有限预算；不会自动继承本地历史恢复授权或跳过真实额度保护。环境截止与共享停止参数仅为可选宿主保护，不改变模型Prompt和工具协议。

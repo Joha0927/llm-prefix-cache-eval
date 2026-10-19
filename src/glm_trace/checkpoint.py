@@ -8,7 +8,7 @@ from pathlib import Path
 
 from minisweagent.exceptions import FormatError, InterruptAgentFlow
 
-PAUSABLE = {"TaskPointsLimit", "QuotaExhausted"}
+PAUSABLE = {"TaskPointsLimit", "QuotaExhausted", "BillingDeadline", "CoordinatorPause"}
 
 
 def save_checkpoint(agent):

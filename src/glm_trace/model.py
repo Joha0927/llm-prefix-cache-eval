@@ -1,5 +1,8 @@
 import httpx
 import openai
+import os
+from datetime import datetime, timezone
+from pathlib import Path
 
 from minisweagent.exceptions import LimitsExceeded
 from minisweagent.models.litellm_model import LitellmModel
@@ -18,6 +21,12 @@ class TracedModel(LitellmModel):
 
     def _query(self, messages, **kwargs):
         reason = "TaskCancelled" if self.trace.stop_event.is_set() else self.trace.fatal_reason
+        shared_stop = os.environ.get("GLM_SHARED_STOP_FILE")
+        if not reason and shared_stop and Path(shared_stop).exists():
+            reason = "CoordinatorPause"
+        deadline = os.environ.get("GLM_EVAL_DEADLINE_UTC")
+        if deadline and datetime.now(timezone.utc) >= datetime.fromisoformat(deadline):
+            reason = "BillingDeadline"
         if self.trace.points >= getattr(self.trace, "points_limit", float("inf")):
             reason = "TaskPointsLimit"
         if any(r["http_status"] == 200 and (not r["usage_valid"] or r["estimated_points"] is None) for r in self.trace.rows.values()):

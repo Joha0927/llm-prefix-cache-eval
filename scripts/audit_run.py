@@ -6,31 +6,51 @@ import json
 from pathlib import Path
 
 
+def iter_events(path):
+    """JSONL boundaries are LF, never Unicode separators inside JSON strings."""
+    with path.open(encoding="utf-8") as handle:
+        for number, line in enumerate(handle, 1):
+            try:
+                yield json.loads(line)
+            except ValueError as exc:
+                raise ValueError(f"Invalid JSONL record {path.name}:{number}") from exc
+
+
+def file_hash(path):
+    with path.open('rb') as handle:
+        return hashlib.file_digest(handle, 'sha256').hexdigest()
+
+
 def audit(run):
-    events = [json.loads(line) for line in (run / "requests.jsonl").read_text(encoding="utf-8").splitlines()]
-    rows = list(csv.DictReader((run / "usage.csv").open(encoding="utf-8")))
-    starts = {e["attempt_id"] for e in events if e["event"] == "wire_request"}
-    errors = []
-    if not starts:
-        errors.append("no_http_attempts")
-    if starts != {r["attempt_id"] for r in rows} or len(rows) != len(starts):
-        errors.append("attempt_coverage")
-    provider = {e["attempt_id"]: e for e in events if e["event"] == "wire_response"}
-    native = {}
-    for e in events:
-        if e["event"] == "native_response":
-            native[e["call_id"]] = e["message"]["extra"]["response"]
+    usage_path = run / "usage.csv"
+    rows = list(csv.DictReader(usage_path.open(encoding="utf-8"))) if usage_path.exists() else []
+    starts, provider, native = set(), {}, {}
+    for e in iter_events(run / "requests.jsonl"):
+        if e["event"] == "wire_request":
+            starts.add(e["attempt_id"])
+        elif e["event"] == "wire_response":
+            body = e.get("body") or {}
+            provider[e["attempt_id"]] = {"usage": body.get("usage"), "model": body.get("model")}
+        elif e["event"] == "native_response":
+            native[e["call_id"]] = e["message"]["extra"]["response"].get("usage") or {}
         elif e["event"] == "call_error":
             for message in e.get("messages") or []:
                 response = message.get("extra", {}).get("response")
                 if isinstance(response, dict):
-                    native[e["call_id"]] = response
+                    native[e["call_id"]] = response.get("usage") or {}
+    errors = []
+    if starts and not usage_path.exists():
+        errors.append("missing_usage_csv")
+    if not starts:
+        errors.append("no_http_attempts")
+    if starts != {r["attempt_id"] for r in rows} or len(rows) != len(starts):
+        errors.append("attempt_coverage")
     checked = 0
     valid = []
     for row in rows:
         if row["http_status"] != "200":
             continue
-        wire = provider.get(row["attempt_id"], {}).get("body") or {}
+        wire = provider.get(row["attempt_id"], {})
         original = wire.get("usage") or {}
         if row["usage_valid"] != "True":
             errors.append("missing_usage:" + row["attempt_id"])
@@ -39,8 +59,7 @@ def audit(run):
         expected = {"prompt_tokens": original.get("prompt_tokens"), "cached_tokens": (original.get("prompt_tokens_details") or {}).get("cached_tokens"), "completion_tokens": original.get("completion_tokens")}
         if any(str(value) != row[field] for field, value in expected.items()):
             errors.append("csv_wire_mismatch:" + row["attempt_id"])
-        decoded = native.get(row["call_id"], {})
-        usage = decoded.get("usage") or {}
+        usage = native.get(row["call_id"], {})
         if any(usage.get(k) != original.get(k) for k in ("prompt_tokens", "completion_tokens")) or (usage.get("prompt_tokens_details") or {}).get("cached_tokens") != expected["cached_tokens"]:
             errors.append("native_wire_mismatch:" + row["attempt_id"])
         else:
@@ -48,7 +67,7 @@ def audit(run):
         if wire.get("model") != "glm-5.3":
             errors.append("unexpected_response_model")
     manifest = json.loads((run / "manifest.json").read_text())
-    if any(hashlib.sha256((run / name).read_bytes()).hexdigest() != digest for name, digest in manifest.items()):
+    if any(file_hash(run / name) != digest for name, digest in manifest.items()):
         errors.append("archive_hash_mismatch")
     prompt = sum(int(r["prompt_tokens"]) for r in valid)
     cached = sum(int(r["cached_tokens"]) for r in valid)
